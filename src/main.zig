@@ -3,9 +3,6 @@ const rl = @cImport({
     @cInclude("raylib.h");
 });
 
-const WIDTH: i16 = 1024;
-const HEIGHT: i16 = 1024;
-
 const BALL = struct {
     x: f32,
     y: f32,
@@ -14,13 +11,15 @@ const BALL = struct {
     radius: f32,
     color: rl.Color,
 };
-
 const BRICK = struct { rect: rl.Rectangle, color: rl.Color, active: bool };
 
-const ROWS = 7;
-const COLS = 10;
-const BRICK_WIDTH = WIDTH / COLS;
-const BRICK_HEIGHT = 30;
+const WIDTH: i16 = 1024; // screen width
+const HEIGHT: i16 = 1024; // screen height
+const ROWS = 7; // no of rows of bricks
+const COLS = 10; // no of columns of bricks
+const BRICK_WIDTH = WIDTH / COLS; // brick width
+const BRICK_HEIGHT = 30; // brick height
+const DEFAULT_LIVES = 3;
 
 pub fn main() !void {
     var paddle = rl.Rectangle{ .x = 462, .y = 900, .height = 10, .width = 100 };
@@ -28,6 +27,8 @@ pub fn main() !void {
 
     var game_started = false;
     var game_paused = false;
+    var game_won = false;
+    var game_over = false;
 
     var bricks: [ROWS][COLS]BRICK = undefined;
     for (0..ROWS) |row| {
@@ -41,6 +42,7 @@ pub fn main() !void {
     }
     var score: i32 = 0;
     var score_text: [20]u8 = undefined;
+    var lives_remaining: i32 = DEFAULT_LIVES;
 
     rl.InitWindow(1024, 1024, "Breakout");
     defer rl.CloseWindow();
@@ -56,8 +58,19 @@ pub fn main() !void {
             game_paused = !game_paused;
 
         if (!game_paused) {
-            if (rl.IsKeyReleased(rl.KEY_SPACE))
+            if (rl.IsKeyReleased(rl.KEY_SPACE)) {
                 game_started = true;
+                game_over = false;
+            }
+
+            if (score == ROWS * COLS) {
+                game_won = true;
+                game_started = false;
+            }
+            if (lives_remaining == -1) {
+                game_over = true;
+                game_started = false;
+            }
 
             if (game_started) { // space-bar
 
@@ -101,6 +114,7 @@ pub fn main() !void {
                     paddle.y = 900;
 
                     game_started = false;
+                    lives_remaining -= 1;
                 }
 
                 if (rl.IsKeyDown(rl.KEY_LEFT)) { // left arrow
@@ -132,16 +146,30 @@ pub fn main() !void {
         rl.DrawText("Score: ", 10, 10, 30, rl.LIGHTGRAY);
         _ = std.fmt.bufPrintZ(&score_text, "{d}", .{score}) catch unreachable;
         if (score == 69)
-            rl.DrawText("Nice!", 150, 10, 30, rl.LIGHTGRAY);
+            rl.DrawText("Nice!", 150, 20, 30, rl.LIGHTGRAY);
         rl.DrawText(&score_text, 120, 10, 30, rl.LIGHTGRAY);
 
-        if (!game_started) {
-            rl.DrawText("Breakout", 350, WIDTH / 2, 80, rl.LIGHTGRAY);
-            rl.DrawText("Press <SPACE> to start.", 400, WIDTH / 2 + 100, 20, rl.LIGHTGRAY);
+        var life: i32 = 0;
+        while (life < lives_remaining) : (life += 1) {
+            rl.DrawRectangle(10 + (life * 20), HEIGHT - 10, 15, 5, rl.PINK);
         }
-        if (game_paused) {
+
+        if (!game_started and !game_over) {
+            rl.DrawText("Breakout", 350, WIDTH / 2, 80, rl.LIGHTGRAY);
+            rl.DrawText("Press <SPACE> to start.", WIDTH / 2 - 112, HEIGHT / 2 + 100, 20, rl.LIGHTGRAY);
+        }
+        if (game_paused and game_started) {
             rl.DrawText("Game Paused!", WIDTH / 2 - 250, HEIGHT / 2, 80, rl.LIGHTGRAY);
-            rl.DrawText("Press <P> to resume.", WIDTH / 2 - 150, HEIGHT / 2 + 70, 20, rl.LIGHTGRAY);
+            rl.DrawText("Press <P> to resume.", WIDTH / 2 - 110, HEIGHT / 2 + 100, 20, rl.LIGHTGRAY);
+        }
+
+        if (game_won and !game_started) {
+            rl.DrawText("Yay! You Won!", 350, HEIGHT / 2, 80, rl.LIGHTGRAY);
+        }
+
+        if (game_over) {
+            rl.DrawText("Better Luck Next Time!", 40, HEIGHT / 2, 80, rl.LIGHTGRAY);
+            rl.DrawText("Press <SPACE> to restart.", WIDTH / 2 - 110, HEIGHT / 2 + 100, 20, rl.LIGHTGRAY);
         }
     }
 }
